@@ -17,19 +17,26 @@ class filSyncTool():
         self.target_folder.get_file_and_dir_path()
         return 
     
-    def compare_path_difference(self,first_compare_path:set[Path],second_compare_path:set[Path])->set[Path]:
+    def compare_dir_path_difference(self,first_compare_path:set[Path],second_compare_path:set[Path])->set[Path]:
         '''
         比较原始文件夹和目标文件夹中的文件和目录
         '''
         comparied_pathes = first_compare_path - second_compare_path
         return comparied_pathes
+    
+    def compare_file_path_difference(self,first_compare_path:dict[Path,float],second_compare_path:dict[Path,float])->set[Path]:
+        '''
+        比较原始文件和目标文件中的文件
+        返回缺失的文件路径
+        '''
+        return first_compare_path.keys() - second_compare_path.keys()
 
     def copy_files(self):
         '''
         仅复制缺失的文件到目标文件夹
         '''
-        files_need_to_copy = self.compare_path_difference(self.original_folder.full_path_with_files, self.target_folder.full_path_with_files)
-        
+        files_need_to_copy = self.compare_file_path_difference(self.original_folder.full_path_with_files, self.target_folder.full_path_with_files)
+
         # 复制缺失的文件
         for file in files_need_to_copy:
             oringinal_file_path = self.original_folder.current_directory / file
@@ -38,12 +45,40 @@ class filSyncTool():
             print(f"Copied file: {oringinal_file_path} to {target_file_path}")
         return
     
-    def sync_directories(self):
+    def remove_files(self):
+        '''
+        删除目标文件夹中多余的文件
+        '''
+        files_need_to_remove = self.compare_file_path_difference(self.target_folder.full_path_with_files, self.original_folder.full_path_with_files)
+
+        # 删除多余的文件
+        for file in files_need_to_remove:
+            target_file_path = self.target_folder.current_directory / file
+            if target_file_path.exists():
+                target_file_path.unlink()
+                print(f"Removed file: {target_file_path}")
+        return
+    
+    def update_changed_files(self):
+        '''
+        更新目标文件夹中已更改的文件
+        '''
+        for files in self.original_folder.full_path_with_files.keys() & self.target_folder.full_path_with_files.keys():
+            if self.original_folder.full_path_with_files[files] > self.target_folder.full_path_with_files[files]:
+                original_file_path = self.original_folder.current_directory / files
+                target_file_path = self.target_folder.current_directory / files
+                if target_file_path.exists():
+                    target_file_path.unlink()
+                shutil.copy2(original_file_path, target_file_path)
+                print(f"Updated file: {target_file_path}")
+
+    
+    def adding_directories(self):
         '''
         同步之前初始化好的目录
         会自动同步所有目录
         '''
-        dir_need_to_create = self.compare_path_difference(self.original_folder.all_directory_path, self.target_folder.all_directory_path)
+        dir_need_to_create = self.compare_dir_path_difference(self.original_folder.all_directory_path, self.target_folder.all_directory_path)
 
         # 删除目标文件夹中多余的目录
 
@@ -52,6 +87,20 @@ class filSyncTool():
             target_dir_path = self.target_folder.current_directory / dir
             target_dir_path.mkdir(parents=True, exist_ok=True)
             print(f"Created directory: {target_dir_path}")
+        return
+    
+    def remove_directories(self):
+        '''
+        删除目标文件夹中多余的目录
+        '''
+        dir_need_to_remove = self.compare_dir_path_difference(self.target_folder.all_directory_path, self.original_folder.all_directory_path)
+
+        # 删除多余的目录
+        for dir in dir_need_to_remove:
+            target_dir_path = self.target_folder.current_directory / dir
+            if target_dir_path.exists() and not any (target_dir_path.iterdir()):
+                target_dir_path.rmdir()  # 删除空目录
+                print(f"Removed emptydirectory: {target_dir_path}")
         return
 
 
@@ -65,7 +114,7 @@ class filSyncTool():
 class filesAndDirs():
     def __init__(self,base_dir_path:str) -> None:
         self.current_directory = Path(base_dir_path)
-        self.full_path_with_files = set()
+        self.full_path_with_files = {}
         self.all_directory_path = set()
         return
 
@@ -73,7 +122,7 @@ class filesAndDirs():
         temp_directory_path_set = set()
         for item in set(Path.rglob(self.current_directory,'**/*')):
             if item.is_file():
-                self.full_path_with_files.add(item.relative_to(self.current_directory))
+                self.full_path_with_files[item.relative_to(self.current_directory)] = os.path.getmtime(item)
                 temp_directory_path_set.add(item.parent.relative_to(self.current_directory))
             elif item.is_dir():
                 temp_directory_path_set.add(item.relative_to(self.current_directory))
@@ -107,10 +156,32 @@ class filSyncModule(filSyncTool):
         仅复制缺失的文件到目标文件夹
         '''
         self.get_files_and_pathes()
-        self.sync_directories()
+        self.adding_directories()
         self.copy_files()
         return
-
+    
+    def sync_files_only(self):
+        '''
+        仅复制和更新文件和目录
+        '''
+        self.get_files_and_pathes()
+        self.adding_directories()
+        self.copy_files()
+        self.update_changed_files()
+        return
+    
+    def sync_files_and_directories(self):
+        '''
+        完全同步文件和目录
+        会删除多余文件及目录
+        '''
+        self.get_files_and_pathes()
+        self.remove_files()
+        self.remove_directories()
+        self.adding_directories()
+        self.copy_files()
+        self.update_changed_files()
+        return
 
 
 # def simplify_directory_path(directory_path:set[Path]):
@@ -133,7 +204,7 @@ class filSyncModule(filSyncTool):
 #     return simplify_directory_path
 
 if __name__ == "__main__":
-    base_directory = r'D:\474213159'
+    base_directory = r'D:\temp'
     target_directory = r'C:\Users\Public\test'
     first_file = filesAndDirs(base_directory)
     first_file.get_file_and_dir_path()
@@ -141,7 +212,7 @@ if __name__ == "__main__":
         print(item)
     
     c = filSyncModule(base_directory, target_directory)
-    c.copy_files_only()
+    c.sync_files_and_directories()
     
 
         

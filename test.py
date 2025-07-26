@@ -49,3 +49,20 @@ b = set([3, 4, 5])
 print(a - b) 
 print(b - a)
 # 输出: {1, 2}
+
+c = {1: 'a', 2: 'b', 3: 'c'}
+b = {3: 'f', 4: 'd', 5: 'e'}
+print(c.keys() - b.keys())  # 输出: {1, 2}
+print(type(b.keys() - c.keys()) )  # 输出: {4, 5}
+
+for k, v in c.items():
+    print(k, v)
+
+d = {'a': 1, 'b': 2, 'c': 3}
+e = {'c': 4, 'd': 5, 'e': 6}
+
+for key in d.keys() & e.keys():
+    if d[key] > e[key]:
+        print('ahhhh')
+    else:
+        print('bhhhh')
