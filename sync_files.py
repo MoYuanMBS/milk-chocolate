@@ -11,10 +11,14 @@ class filSyncTool():
         '''
         self.original_folder = filesAndDirs(original_folder_path)
         self.target_folder = self.target_folder = filesAndDirs(target_folder_path)
+        self.ignored_files_full = set()
+        self.ignored_files_stem = set()
+        self.ignored_directories = set()
+        return
 
     def get_files_and_pathes(self):
-        self.original_folder.get_file_and_dir_path()
-        self.target_folder.get_file_and_dir_path()
+        self.original_folder.get_file_and_dir_path(self.ignored_files_full, self.ignored_files_stem, self.ignored_directories)
+        self.target_folder.get_file_and_dir_path(self.ignored_files_full, self.ignored_files_stem, self.ignored_directories)
         return 
     
     def compare_dir_path_difference(self,first_compare_path:set[Path],second_compare_path:set[Path])->set[Path]:
@@ -119,6 +123,15 @@ class filSyncTool():
             if remove_empty_dirs(dir_path, depth):
                 print(f"Removed directory: {dir_path}")
         return
+    
+    def add_igonred_files_and_directories(self,full_file_names: set[str], file_names_stems: set[str], directory_names: set[str]):
+        '''
+        添加需要忽略的文件和目录
+        '''
+        self.ignored_files_full.update(full_file_names)
+        self.ignored_files_stem.update(file_names_stems)
+        self.ignored_directories.update(directory_names)
+        return
 
 
 class filesAndDirs():
@@ -128,14 +141,17 @@ class filesAndDirs():
         self.all_directory_path = set()
         return
 
-    def get_file_and_dir_path(self):
+    def get_file_and_dir_path(self, ignore_full_files: set[str], ignore_stem_files: set[str], ignore_directories: set[str]):
         temp_directory_path_set = set()
         for item in set(Path.rglob(self.current_directory,'**/*')):
             if item.is_file():
-                self.full_path_with_files[item.relative_to(self.current_directory)] = os.path.getmtime(item)
-                temp_directory_path_set.add(item.parent.relative_to(self.current_directory))
+                if not (item.name in ignore_full_files or item.stem in ignore_stem_files):
+                    if not any(dir in item.parts for dir in ignore_directories):
+                        self.full_path_with_files[item.relative_to(self.current_directory)] = os.path.getmtime(item)
+                        temp_directory_path_set.add(item.parent.relative_to(self.current_directory))
             elif item.is_dir():
-                temp_directory_path_set.add(item.relative_to(self.current_directory))
+                if not any(dir not in item.parts for dir in ignore_directories):
+                    temp_directory_path_set.add(item.relative_to(self.current_directory))
         # for item in temp_directory_path_set:
         #     print(item)
         self.simplify_directory_path(temp_directory_path_set)
@@ -191,23 +207,45 @@ class filSyncModule(filSyncTool):
         self.update_changed_files()
         return
     
-    def update_changed_files(self):
+    def update_files(self):
         '''
         仅同步以更改的文件
         '''
         self.get_files_and_pathes()
         self.update_changed_files()
         return 
+    
+    def ignored_files_and_directories(self, file_names: set[str] = set(), directory_names: set[str] = set())-> None:
+        '''
+        需要忽略文件和目录
+        只需要传入文件名及目录名即可
+        '''
+        erro_dir_names = {' /', ':', '*', '?', '"', '<', '>', '|', '{', '}', '\''}
+        full_file_names = set()
+        file_names_stems = set()
+        for file_name in file_names:
+            if '.' in file_name:
+                full_file_names.add(file_name)
+            else:
+                file_names_stems.add(file_name)
+        for directory_name in directory_names:
+            if directory_name in erro_dir_names:
+                directory_names.remove(directory_name)
+        self.add_igonred_files_and_directories(full_file_names, file_names_stems, directory_names)
+        return 
 
 if __name__ == "__main__":
     base_directory = r'D:\temp'
     target_directory = r'C:\Users\Public\test'
-    first_file = filesAndDirs(base_directory)
-    first_file.get_file_and_dir_path()
-    for item in first_file.all_directory_path:
-        print(item)
+    ignored_dir = {'Multiwheel'}
+    ignored_files = {'test.txt', 'example.docx'}    
+    # first_file = filesAndDirs(base_directory)
+    # first_file.get_file_and_dir_path(set(), set(), set())
+    # for item in first_file.all_directory_path:
+    #     print(item)
     
     c = filSyncModule(base_directory, target_directory)
+    c.ignored_files_and_directories(directory_names=ignored_dir, file_names=ignored_files)
     c.sync_files_and_directories()
     
 
