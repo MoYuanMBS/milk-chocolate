@@ -1,6 +1,7 @@
 import os
 import shutil
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class filSyncTool():
     def __init__(self,original_folder_path:str,target_folder_path:str) -> None:
@@ -14,6 +15,7 @@ class filSyncTool():
         self.ignored_files_full = set()
         self.ignored_files_stem = set()
         self.ignored_directories = set()
+        self.chunk_size = 4096 * 4096 # 4MB
         return
 
     def get_files_and_pathes(self):
@@ -34,6 +36,18 @@ class filSyncTool():
         返回缺失的文件路径
         '''
         return first_compare_path.keys() - second_compare_path.keys()
+    
+    def copy_file_with_chunk(self, organinal_file_path: Path, target_file_path: Path, print_ticket:int):
+        with open(organinal_file_path, 'rb') as src_file, open(target_file_path, 'wb') as dst_file:
+            while True:
+                chunk = src_file.read(self.chunk_size)
+                if not chunk:
+                    break
+                dst_file.write(chunk)
+        if print_ticket == 3:
+            print(f"Copied file: {organinal_file_path} to {target_file_path}")
+        elif print_ticket == 4:
+            print(f'updated file: {target_file_path}')
 
     def copy_files(self):
         '''
@@ -41,12 +55,24 @@ class filSyncTool():
         '''
         files_need_to_copy = self.compare_file_path_difference(self.original_folder.full_path_with_files, self.target_folder.full_path_with_files)
 
+
+
         # 复制缺失的文件
-        for file in files_need_to_copy:
-            oringinal_file_path = self.original_folder.current_directory / file
-            target_file_path = self.target_folder.current_directory / file
-            shutil.copy2(oringinal_file_path, target_file_path)
-            print(f"Copied file: {oringinal_file_path} to {target_file_path}")
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for file in files_need_to_copy:
+                original_file_path = self.original_folder.current_directory / file
+                target_file_path = self.target_folder.current_directory / file
+                future = executor.submit(self.copy_file_with_chunk, original_file_path, target_file_path, 3)
+                futures.append(future)
+
+            # 等待所有线程完成
+            for future in as_completed(futures):
+                try:
+                    future.result()  # 可以用于捕获异常
+                except Exception as e:
+                    print(f"Error copying file: {e}")
+
         return
     
     def remove_files(self):
@@ -67,14 +93,24 @@ class filSyncTool():
         '''
         更新目标文件夹中已更改的文件
         '''
-        for files in self.original_folder.full_path_with_files.keys() & self.target_folder.full_path_with_files.keys():
-            if self.original_folder.full_path_with_files[files] > self.target_folder.full_path_with_files[files]:
-                original_file_path = self.original_folder.current_directory / files
-                target_file_path = self.target_folder.current_directory / files
-                if target_file_path.exists():
-                    target_file_path.unlink()
-                shutil.copy2(original_file_path, target_file_path)
-                print(f"Updated file: {target_file_path}")
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            # 更新已更改的文件
+            for files in self.original_folder.full_path_with_files.keys() & self.target_folder.full_path_with_files.keys():
+                if self.original_folder.full_path_with_files[files] > self.target_folder.full_path_with_files[files]:
+                    original_file_path = self.original_folder.current_directory / files
+                    target_file_path = self.target_folder.current_directory / files
+                    if target_file_path.exists():
+                        target_file_path.unlink()
+                    future = executor.submit(self.copy_file_with_chunk, original_file_path, target_file_path, 4)
+                    futures.append(future)
+                
+            # 等待所有线程完成
+            for future in as_completed(futures):
+                try:
+                    future.result()  # 可以用于捕获异常
+                except Exception as e:
+                    print(f"Error updating file: {e}")
 
     
     def adding_directories(self):
@@ -132,6 +168,16 @@ class filSyncTool():
         self.ignored_files_stem.update(file_names_stems)
         self.ignored_directories.update(directory_names)
         return
+    
+    def change_chunk_size(self, chunk_size: int):
+        '''
+        修改文件复制的块大小
+        '''
+        if chunk_size > 0:
+            self.chunk_size = chunk_size
+        else:
+            raise ValueError("Chunk size must be a positive integer.")
+        return
 
 
 class filesAndDirs():
@@ -150,7 +196,7 @@ class filesAndDirs():
                         self.full_path_with_files[item.relative_to(self.current_directory)] = os.path.getmtime(item)
                         temp_directory_path_set.add(item.parent.relative_to(self.current_directory))
             elif item.is_dir():
-                if not any(dir not in item.parts for dir in ignore_directories):
+                if not any(dir in item.parts for dir in ignore_directories):
                     temp_directory_path_set.add(item.relative_to(self.current_directory))
         # for item in temp_directory_path_set:
         #     print(item)
@@ -237,7 +283,7 @@ class filSyncModule(filSyncTool):
 if __name__ == "__main__":
     base_directory = r'D:\temp'
     target_directory = r'C:\Users\Public\test'
-    ignored_dir = {'Multiwheel'}
+    ignored_dir = {'asdsdasd'}
     ignored_files = {'test.txt', 'example.docx'}    
     # first_file = filesAndDirs(base_directory)
     # first_file.get_file_and_dir_path(set(), set(), set())
