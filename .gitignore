@@ -5,6 +5,7 @@ __pycache__/
 test.py
 demo_self.py
 time_calculator.py
+unity_test.py
 
 # C extensions
 *.so
