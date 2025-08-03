@@ -103,3 +103,69 @@ def copy_files(self):
                 print(f"Error copying file: {e}")
 
     return
+
+class Folder():
+    def _test(self):
+        self.__prasd = 1
+        print("This is a private method.")
+    
+    def ahhhhh(self):
+        print("This is a public method.")
+
+class MyFolder(Folder):
+    def __init__(self):
+        super().__init__()
+
+        self.购物清单 = [
+            '牛奶 * 2',
+            'bakon',
+            'croissant',
+            'cherry (if 新鲜 else 提子)',
+            '番茄',
+            '鸡翅中',
+            '抽纸'
+        ]
+
+    def pre(self):
+        print(self.__prasd)
+
+
+import re
+text = '''
+MechWarrior 5: Mercenaries
+BE YOUR OWN WEAPON OF WAR
+Welcome to the year 3015! It’s a hell of a time to be alive.
+
+Humanity has colonized thousands of star systems spanning a vast region of space known as the Inner Sphere. The golden age of cooperation and advancement is now a distant memory, and humanity has once again splintered into disparate factions all vying for s…
+Price
+$29.99
+Recommendations
+10809
+Metacritic
+73
+'''
+pattern = r'[Z].*'
+
+result = re.search(pattern=pattern, string=text)
+if result:
+    print(result.group(0))  # 输出匹配的字符串
+else:
+    print(result)
+
+print(re.search(pattern=re.compile(r'[_\., ]+cache|remote'),string=text),re.MULTILINE)
+
+import os
+files = set()
+files_patterns:str = ''
+for file in files:
+    if '.' in file and len(file.split('.')) > 0:
+        files_patterns += f'{re.escape(file)}|'
+g = re.compile(files_patterns[:-1]) if files_patterns else None
+print(g)
+
+h = ''
+if h:
+    print('h is not empty')
+else:
+    print('h is empty')
+
