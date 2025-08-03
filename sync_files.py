@@ -222,6 +222,16 @@ class fileSyncTool:
         else:
             raise ValueError("Chunk size must be a positive integer.")
         return
+    
+    def _change_allowed_regex_pattern(self, pattern: str):
+        """
+        修改允许的正则表达式模式
+        """
+        try:
+            self.__allowed_regex_pattern = re.compile(pattern, re.UNICODE)
+        except re.error:
+            raise ValueError("Invalid regex pattern.")
+        return
 
     def advanced_file_and_directory_filtering(
         self,
@@ -431,23 +441,3 @@ if __name__ == "__main__":
     c.ignored_files_and_directories(directories=ignored_dir, files=ignored_files)
     c.sync_files_and_directories()
 
-
-# for directory_path, directory, files in os.walk(base_directory,topdown=True):
-#     # print(f"Directory_path: {directory_path}")
-#     # print(f"Directory: {directory}")
-#     # print(f"Files: {files}")
-#     if files:
-#         for file in files:
-#             full_path = os.path.join(directory_path, file)
-#             full_path_with_files.add(full_path)
-#     elif directory:
-#         for dir in directory:
-#             full_directory_path =os.path.join(directory_path, dir)
-#             for item in full_path_with_files:
-#                 if item.startswith(full_directory_path + os.sep) and item != full_directory_path:
-
-
-#     def remove_common_path(path1:str,path2:str) -> str:
-#         common_path = os.path.commonpath([path1, path2])
-#         revelent_path_1 = path1.relative_to(common_path)
-#         revelent_path_2 = path2.relative_to(common_path)
