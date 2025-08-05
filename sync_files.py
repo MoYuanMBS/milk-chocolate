@@ -13,7 +13,7 @@ class fileSyncTool:
         param target_folder_path: 目标文件夹路径
         """
         self.__original_folder = filesAndDirs(original_folder_path)
-        self.__target_folder = self.__target_folder = filesAndDirs(target_folder_path)
+        self.__target_folder = filesAndDirs(target_folder_path)
         self.__chunk_size = 4096 * 4096  # 4MB
         self.__allowed_regex_pattern: re.Pattern = re.compile(
             r"^[\w\u4e00-\u9fff.*?]+$", re.UNICODE
@@ -262,7 +262,7 @@ class fileSyncTool:
         self,
         files: set[str] = set(),
         directories: set[str] = set(),
-        ignoed_type: bool = True,
+        ignored_type: bool = True,
     ):
         """
         忽略指定的文件名或目录名
@@ -286,7 +286,7 @@ class fileSyncTool:
             re.compile(dir_patterns[:-1]) if dir_patterns else None
         )
 
-        self.__ignored_type = ignoed_type
+        self.__ignored_type = ignored_type
         return
 
 
