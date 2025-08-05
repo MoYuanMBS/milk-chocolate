@@ -63,7 +63,7 @@ sfm.sync_files_and_directories()
 好了，您已经学会如何使用了，赶紧pull下来使用吧！
 
 ### 依赖要求：
-- 推荐使用:
+- 推荐使用：
 **Python 3.10 +**
 - 最低配置：
 **Python 3.8 +**
