@@ -1,5 +1,5 @@
 # milk-chocolate
-####**Milk Chocolate** 是一个文件夹同步模块，亦可以当作命令行文件同步器。
+### **Milk Chocolate** 是一个文件夹同步模块，亦可以当作命令行文件同步器。
 **目前支持的功能：**
 - 本模块仅使用**Python 标准库**，无需安装其他依赖项！！！
 - 支持Windows，Mac和Linux文件夹
@@ -14,7 +14,7 @@
 	- 也支持简单的文件及问价夹筛选功能
 	~~其实会自动帮你写正则啦~~~
 
-**To do list:**
+**To Do List:**
 - 支持局域网及服务器文件夹同步
 	- 个人nas同步
 	- 服务器同步文件用以备份等
@@ -23,16 +23,16 @@
 - 可以的话用yield作为return来替换现有的运行内print
 	-  这样就可以自定义输出语言什么的惹~
 
-####调用方法：
+### 调用方法：
 **初始化**
 ``` python
 from sync_files import fileSyncModule
 
-#Initialize with original_folder_path & target_folder_path
+#初始化原文件夹和目标文件夹路径
 original_folder_path = r'C:\Users\Username\Samples\examples' 
 target_folder_path = r'I:\vtuber\MeUmy\745493\T'
 
-sfm = fileSyncModule(orinal, target)
+sfm = fileSyncModule(original_folder_path, target_folder_path)
 ```
 **添加需要过滤的文件/文件夹**
 ```python
@@ -58,16 +58,16 @@ sfm.ignored_files_and_directories(ignored_files_set, ignored_dirs_set, ignored_t
 **调用**
 ```python
 sfm.sync_files_and_directories()
-#有不函数可供切换不同同模式使用
+#有不函数可供切换不同模式使用
 ```
 好了，您已经学会如何使用了，赶紧pull下来使用吧！
 
-####依赖要求：
-- 推荐使用:
+### 依赖要求：
+- 推荐使用：
 **Python 3.10 +**
 - 最低配置：
 **Python 3.8 +**
 
-####碎碎念：
+### 碎碎念：
 - A:为什么项目名字叫**Milk Chocolate**？
 	- 一定是有个[起名字的人](https://github.com/LaoshuBaby)在贪吃惹！
