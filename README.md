@@ -32,7 +32,7 @@ from sync_files import fileSyncModule
 original_folder_path = r'C:\Users\Username\Samples\examples' 
 target_folder_path = r'I:\vtuber\MeUmy\745493\T'
 
-sfm = fileSyncModule(orinal, target)
+sfm = fileSyncModule(original_folder_path, target_folder_path)
 ```
 **添加需要过滤的文件/文件夹**
 ```python
