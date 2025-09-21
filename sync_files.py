@@ -5,15 +5,15 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-class fileSyncTool:
+class FileSyncTool:
     def __init__(self, original_folder_path: str, target_folder_path: str) -> None:
         """
         初始化文件同步模块
         param original_folder_path: 原始文件夹路径
         param target_folder_path: 目标文件夹路径
         """
-        self.__original_folder = filesAndDirs(original_folder_path)
-        self.__target_folder = filesAndDirs(target_folder_path)
+        self.__original_folder = FilesAndDirs(original_folder_path)
+        self.__target_folder = FilesAndDirs(target_folder_path)
         self.__chunk_size = 4096 * 4096  # 4MB
         self.__allowed_regex_pattern: re.Pattern = re.compile(
             r"^[\w\u4e00-\u9fff.*?]+$", re.UNICODE
@@ -290,11 +290,11 @@ class fileSyncTool:
         return
 
 
-class filesAndDirs:
+class FilesAndDirs:
     def __init__(self, base_dir_path: str) -> None:
-        self.current_directory = Path(base_dir_path)
-        self.full_path_with_files: dict[Path, float] = {}
-        self.all_directory_path = set()
+        self.current_directory = Path(base_dir_path) # 同步文件夹的绝对路径
+        self.full_path_with_files: dict[Path, float] = {} # 所有文件的相对路径和修改时间
+        self.all_directory_path = set() # 所有目录的相对路径
         return
 
     def get_file_and_dir_path(
@@ -365,79 +365,18 @@ class filesAndDirs:
         ignored_type: 是否忽略只读文件和目录
         """
         if pattern is None:
-            return True if ignored_type else False
+            return ignored_type
         else:
             if pattern.search(str(copmared_path)):
-                return False if ignored_type else True
+                return not ignored_type
             else:
-                return True if ignored_type else False
-
-
-class fileSyncModule(fileSyncTool):
-    def __init__(self, original_folder_path: str, target_folder_path: str) -> None:
-        super().__init__(original_folder_path, target_folder_path)
-
-    def copy_files_only(self):
-        """
-        仅复制缺失的文件到目标文件夹
-        """
-        self._get_files_and_pathes()
-        self._adding_directories()
-        self._copy_files()
-        return
-
-    def sync_files_only(self):
-        """
-        仅复制缺失和更新修改过的文件
-        """
-        self._get_files_and_pathes()
-        self._adding_directories()
-        self._copy_files()
-        self._update_changed_files()
-        return
-
-    def sync_files_and_directories(self):
-        """
-        完全同步文件和目录
-        会删除多余文件及目录
-        """
-        self._get_files_and_pathes()
-        self._remove_files()
-        self._remove_directories()
-        self._adding_directories()
-        self._copy_files()
-        self._update_changed_files()
-        return
-
-    def update_files(self):
-        """
-        仅同步以更改的文件
-        """
-        self._get_files_and_pathes()
-        self._update_changed_files()
-        return
-    
-    def Delete_excess_files(self):
-        """
-        删除目标文件夹中多余的文件和目录
-        """
-        self._get_files_and_pathes()
-        self._remove_files()
-        self._remove_directories()
-        return
-
+                return ignored_type
 
 if __name__ == "__main__":
     base_directory = r"D:\temp"
-    target_directory = r"C:\Users\Public\test"
-    ignored_dir = {"asdsdasd"}
-    ignored_files = {"test.txt", "example.docx"}
-    # first_file = filesAndDirs(base_directory)
-    # first_file.get_file_and_dir_path(set(), set(), set())
-    # for item in first_file.all_directory_path:
-    #     print(item)
-
-    c = fileSyncModule(base_directory, target_directory)
-    c.ignored_files_and_directories(directories=ignored_dir, files=ignored_files)
-    c.sync_files_and_directories()
-
+    target_directory = r"C:\Users\Public\temp"
+    a = FilesAndDirs(base_directory)
+    a.get_file_and_dir_path(None, None, True)
+    for item in a.all_directory_path:
+        print(item)
+    print(a.current_directory)

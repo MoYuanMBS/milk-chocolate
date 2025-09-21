@@ -6,6 +6,7 @@ test.py
 demo_self.py
 time_calculator.py
 unity_test.py
+test2.py
 
 # C extensions
 *.so
