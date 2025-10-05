@@ -55,15 +55,22 @@ class FileSyncModule(FileSyncTool):
 
 
 if __name__ == "__main__":
+    import time
     base_directory = r"D:\temp"
     target_directory = r"C:\Users\Public\temp"
     ignored_dir = {"asdsdasd"}
     ignored_files = {"test.txt", "example.docx"}
+    ignored_dir_regex = r'testtt'
+    ignored_files_regex = r'.*\.py$|test\.txt$'
     # first_file = filesAndDirs(base_directory)
     # first_file.get_file_and_dir_path(set(), set(), set())
     # for item in first_file.all_directory_path:
     #     print(item)
 
+    start_time = time.time()
     c = FileSyncModule(base_directory, target_directory)
-    c.ignored_files_and_directories(directories=ignored_dir, files=ignored_files)
+    # c.ignored_files_and_directories(directories=ignored_dir, files=ignored_files)
+    c.advanced_file_and_directory_filtering(ignored_files_regex, ignored_dir_regex, True)
     c.sync_files_and_directories()
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
