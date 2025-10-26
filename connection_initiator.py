@@ -1,11 +1,21 @@
-import websockets
-import asyncio
+# 标准库
+import ssl
 import json
+import asyncio
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+# 第三方库
+import websockets
+from websockets.asyncio.client import ClientConnection
+
+# 本地模块
+from network_config import config
+from status_tracker import StatusTracker
 
 class MessageType(Enum):
+    client_id = config.generate_client_id()
     FileContentDict = 'filecontent'
     FilePathDict = 'filepath'
     TargetFolder = 'targetfolder'
@@ -13,14 +23,42 @@ class MessageType(Enum):
     Test = 'test'
     Error = 'error'
 
-websocket_connection = None
+websocket_connection: Optional[ClientConnection] = None
 
-async def connect(uri: str) -> None:
-    """连接到指定的 WebSocket 服务器"""
+async def connect() -> None:
+    """
+    连接到指定的 WebSocket 服务器
+    """
     global websocket_connection  # 使用全局变量来存储连接对象
-    # 开始与服务器建立 WebSocket 连接
-    websocket_connection = await websockets.connect(uri)
-    print("Connected to the server")  # 输出连接成功的消息
+    ssl_context = ssl.create_default_context()
+
+    # 强制使用加密连接
+    if not config.allow_plaintext:
+        # 使用自签名证书
+        if config.self_signed_crt_mode:
+            ssl_context.check_hostname = False
+            ssl_context.load_verify_locations(str(config.ca_cert))
+            ssl_context.load_cert_chain(certfile=str(config.client_crt), keyfile=str(config.client_key))
+        else:
+            # 使用受信任证书
+            config.check_certs_for_client()
+            ssl_context.load_cert_chain(certfile=str(config.client_crt), keyfile=str(config.client_key))
+    else:
+        # 允许明文连接（开发模式）
+        ssl_context = None
+    
+    # 建立 WebSocket 连接
+    try:
+        if not config.allow_plaintext:
+            uri = config.get_server_uri()
+            websocket_connection = await websockets.connect(uri, ssl=ssl_context)
+        else:
+            uri = config.get_server_uri()
+            websocket_connection = await websockets.connect(uri)
+    except Exception as e:
+        StatusTracker.error_update('websocket connection', f'{e}', 'failed to connect')
+        raise e
+    StatusTracker.update('websocket connection', 'established', 'success')
     return
 
 async def send_message(message, message_type: MessageType) -> None:
@@ -53,9 +91,22 @@ async def close_connection() -> None:
 
 async def main() -> None:
     """主函数，管理连接、通信和断开的流程"""
-    uri = "ws://localhost:8765"  # WebSocket 服务器的 URI
-    await connect(uri)  # 建立连接
-    
+
+    # 自动获取服务器 URI
+    try:
+        uri = config.get_server_uri()
+    except RuntimeError as e:
+        print(f"[ERROR] Configuration error: {e}")
+        return
+
+    # 根据 URI 类型决定是否验证证书
+    if uri.startswith('wss://'):
+        # 自签名证书场景：禁用验证
+        # 受信任证书场景：启用验证（改为 verify_ssl=True）
+        await connect()
+    else:
+        await connect()
+
     # 测试发送消息和接收消息
     await send_message("Hello Server!", MessageType.Test)  # 发送一条信息给服务器
     await receive_message()  # 接收服务器的响应
@@ -64,7 +115,9 @@ async def main() -> None:
     await close_connection()
 
 # 启动事件循环并运行主函数
-asyncio.get_event_loop().run_until_complete(main())
+if __name__ == "__main__":
+    config.self_signed_crt_mode = True  # 使用自签名证书
+    asyncio.run(main())
 
 
 

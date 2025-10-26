@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+certs/
 *.py[codz]
 *$py.class
 test.py
@@ -8,6 +9,11 @@ time_calculator.py
 unity_test.py
 test2.py
 temp.py
+key_generator_tools.py
+TEST_RESULTS.md
+test_network.py
+NETWORK_USAGE.md
+
 
 # C extensions
 *.so

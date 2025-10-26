@@ -151,7 +151,7 @@ class FileSyncTool:
             inner_workers = 1
 
         # 使用线程池统一处理
-        with ThreadPoolExecutor(max_workers=self.__max_workers) as executor:
+        with ThreadPoolExecutor(max_workers = self.__max_workers) as executor:
             futures = []
 
             # 如果有小文件，优先提交小文件任务（占用1个线程）
