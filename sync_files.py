@@ -3,10 +3,13 @@ import re
 import asyncio
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable
+from typing import Callable, Optional
 import async_file_copy as asynCopy
 import async_file_update as asynUpdate
 from status_tracker import StatusTracker
+from network_config import config
+from typeing_and_emnu import FilesTyping, ServerMode
+import connection_client
 
 class FileSyncTool:
     def __init__(self, original_folder_path: str, target_folder_path: str) -> None:
@@ -25,12 +28,21 @@ class FileSyncTool:
             r'^[/\\]|'                    # 绝对路径开头
             r'(?=.*/)(?=.*\\)', re.UNICODE
         )
-        self.offline_mode : bool = True  # 离线模式，默认开启 
+        self.__offline_mode : bool = True  # 离线模式，默认开启 
+        self.__Passive_file_folder: PassiveFileSyncTool = PassiveFileSyncTool(original_folder_path, target_folder_path)
         return
 
     def _get_files_and_pathes(self):
-        self.__original_folder.get_file_and_dir_path()
-        self.__target_folder.get_file_and_dir_path()
+        '''获取文件和目录路径'''
+
+        if self.__offline_mode:
+            self.__original_folder.get_file_and_dir_path()
+            self.__target_folder.get_file_and_dir_path()
+        else:
+            if config.service_mode is ServerMode.CLIENT_ORIGIN or ServerMode.SERVER_ORIGIN:
+                self.__original_folder.get_file_and_dir_path()
+            elif config.service_mode is ServerMode.CLIENT_TARGET or ServerMode.SERVER_TARGET:
+                self.__target_folder.get_file_and_dir_path()
         return
 
     def __compare_dir_path_difference(
@@ -90,7 +102,7 @@ class FileSyncTool:
             return
         
         # 在同步函数中运行异步代码
-        if self.offline_mode:
+        if self.__offline_mode:
             asyncio.run(copy_files(asynCopy.write_chunk_to_file))
         else:
             pass
@@ -131,7 +143,7 @@ class FileSyncTool:
                 large_files[ori_path] = tar_path
 
         # 根据模式选择处理函数
-        if self.offline_mode:
+        if self.__offline_mode:
             small_process_fn = asynCopy.write_chunk_to_file
             large_process_fn = asynUpdate.update_chunks_to_file
         else:
@@ -171,7 +183,7 @@ class FileSyncTool:
                     self.__buffer_size,
                     inner_workers,
                     large_process_fn,
-                    self.offline_mode
+                    self.__offline_mode
                 )
                 futures.append(future)
 
@@ -192,7 +204,7 @@ class FileSyncTool:
         # 删除多余的文件
         if not files_need_to_remove:
             return
-        if self.offline_mode:
+        if self.__offline_mode:
             async def async_remove_with_limit():
                 # 控制并发数量
                 semaphore = asyncio.Semaphore(self.__max_workers)
@@ -223,7 +235,7 @@ class FileSyncTool:
         # 创建缺失的目录
         if not dir_need_to_create:
             return
-        if self.offline_mode:
+        if self.__offline_mode:
             async def async_create_with_limit():
                 # 控制并发数量
                 semaphore = asyncio.Semaphore(self.__max_workers)
@@ -269,17 +281,17 @@ class FileSyncTool:
 
         if not dir_need_to_remove:
             return
-        if self.offline_mode:
+        if self.__offline_mode:
             async def async_remove_dir_with_limit():
                 # 控制并发数量
                 semaphore = asyncio.Semaphore(self.__max_workers)
 
-                async def create_with_semaphore(dir_path, depth):
+                async def remove_dir_with_semaphore(dir_path, depth):
                     async with semaphore:
                         await asynCopy.delete_directories(dir_path, depth)  # 正确调用
 
                 # 创建所有任务
-                tasks = [asyncio.create_task(create_with_semaphore(self.__target_folder.current_directory / dir, depth))
+                tasks = [asyncio.create_task(remove_dir_with_semaphore(self.__target_folder.current_directory / dir, depth))
                          for dir, depth in dir_need_to_remove.items()]
                 # 等待所有任务完成
                 await asyncio.gather(*tasks)
@@ -349,15 +361,15 @@ class FileSyncTool:
                 self.__original_folder.directories_regex = re.compile(directory_pattern,re.UNICODE)
                 self.__target_folder.directories_regex = re.compile(directory_pattern,re.UNICODE)
 
-        self.__original_folder.exluded_type = exluded_type
-        self.__target_folder.exluded_type = exluded_type
+        self.__original_folder.exluded_pattern = exluded_type
+        self.__target_folder.exluded_pattern = exluded_type
         return
 
     def ignored_files_and_directories(
         self,
         files: set[str] = set(),
         directories: set[str] = set(),
-        exluded_type: bool = True,
+        exluded_type: bool = True, # True: 忽略, False: 仅复制
     ):
         """
         忽略指定的文件名或目录名
@@ -381,10 +393,33 @@ class FileSyncTool:
         self.__original_folder.directories_regex = directories_regex
         self.__target_folder.directories_regex = directories_regex
 
-        self.__original_folder.exluded_type = exluded_type
-        self.__target_folder.exluded_type = exluded_type
+        self.__original_folder.exluded_pattern = exluded_type
+        self.__target_folder.exluded_pattern = exluded_type
         return
-
+    
+    def set_online_mode(self, host_address: str, port: int, service_mode: ServerMode):
+        """
+        设置在线模式
+        在线模式需要服务器支持
+        """
+        config.host_and_port = (host_address, port)
+        config.service_mode = service_mode
+        self.__offline_mode = False
+        return
+    
+    def _geather_basic_information(self):
+        '''
+        收集基本信息
+        '''
+        self.__Passive_file_folder.chunk_size = self.__chunk_size
+        self.__Passive_file_folder.buffer_size = self.__buffer_size
+        self.__Passive_file_folder.max_workers = self.__max_workers
+        self.__Passive_file_folder.files_regex = self.__original_folder.files_regex
+        self.__Passive_file_folder.directories_regex = self.__original_folder.directories_regex
+        self.__Passive_file_folder.exluded_pattern = self.__original_folder.exluded_pattern
+        self.__Passive_file_folder.service_mode = config.service_mode
+        # connection_client.init_server_connection(self.__Passive_file_folder)
+        return
 
 class FilesAndDirs:
     def __init__(self, base_dir_path: str) -> None:
@@ -393,7 +428,7 @@ class FilesAndDirs:
         self.all_directory_path = set() # 所有目录的相对路径
         self.files_regex: re.Pattern | None = None # 忽略的文件正则表达式
         self.directories_regex: re.Pattern | None = None # 忽略的目录正则表达式
-        self.exluded_type: bool = True # 忽略/只读文件和目录
+        self.exluded_pattern: bool = True # 忽略/只读文件和目录
         return
 
     def get_file_and_dir_path(self) -> None:
@@ -408,7 +443,7 @@ class FilesAndDirs:
                 )
                 if (
                     (temp_file_result and temp_dir_result)
-                    if self.exluded_type
+                    if self.exluded_pattern
                     else (temp_file_result or temp_dir_result)
                 ):
                     self.full_path_with_files[
@@ -459,12 +494,35 @@ class FilesAndDirs:
         ignored_type: 是否忽略只读文件和目录
         """
         if pattern is None:
-            return self.exluded_type
+            return self.exluded_pattern
         else:
             if pattern.search(str(copmared_path)):
-                return not self.exluded_type
+                return not self.exluded_pattern
             else:
-                return self.exluded_type
+                return self.exluded_pattern
+
+class PassiveFileSyncTool():
+
+    def __init__(self, original_path:str, target_path:str) -> None:
+        self.original_folder_path:FilesAndDirs = FilesAndDirs(original_path)
+        self.target_folder_path:FilesAndDirs = FilesAndDirs(target_path)
+        self.chunk_size:int = 4096 * 4096  # 4MB
+        self.buffer_size:int = self.chunk_size * 4  # 16MB
+        self.max_workers:int = 4
+        self.files_regex:re.Pattern | None = None
+        self.directories_regex:re.Pattern | None = None
+        self.exluded_pattern:bool = True
+        self.service_mode:Optional[ServerMode] = None
+        return
+    
+    def getfiles_and_pathes(self):
+        '''
+        获取文件和目录路径
+        '''
+        if config.service_mode is ServerMode.CLIENT_ORIGIN or ServerMode.SERVER_ORIGIN:
+            self.original_folder_path.get_file_and_dir_path()
+        elif config.service_mode is ServerMode.CLIENT_TARGET or ServerMode.SERVER_TARGET:
+            self.target_folder_path.get_file_and_dir_path()
 
 if __name__ == "__main__":
     base_directory = r"D:\temp"

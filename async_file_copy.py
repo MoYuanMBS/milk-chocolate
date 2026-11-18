@@ -5,6 +5,7 @@ import shutil
 from typing import Callable
 from pathlib import Path
 from status_tracker import StatusTracker
+from typeing_and_emnu import FilesTyping
 
 #########################################################################
 #文件块读取与写入
@@ -35,7 +36,7 @@ async def get_chunks_for_largefiles(file_path:dict[Path,Path], chunk_size:int, b
     '''
     for original_file_path, target_file_path in file_path.items():
         file_offset: int = 0  # 文件偏移量
-        buffer_data: dict[Path, dict[int, bytes]] = {}  # 缓冲区数据
+        buffer_data: FilesTyping.file_chunks = {}  # 缓冲区数据
         current_buffer_size: int = 0  # 当前缓冲区大小
         
         async with aiofiles.open(original_file_path, 'rb') as large_file:
@@ -63,7 +64,7 @@ async def get_chunks_for_largefiles(file_path:dict[Path,Path], chunk_size:int, b
     
     return
 
-async def write_chunk_to_file(file_chunks:dict[Path,dict[int,bytes]],finish_mark:bool) -> None:
+async def write_chunk_to_file(file_chunks:FilesTyping.file_chunks,finish_mark:bool) -> None:
     '''
     将块写入目标文件的指定偏移
     '''

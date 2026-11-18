@@ -3,13 +3,12 @@
 用于管理 WebSocket 连接的安全模式
 """
 import re
-import ssl
 import socket
 import uuid
-import pickle
 from pathlib import Path
 from typing import Literal, Optional
 from status_tracker import StatusTracker
+from typeing_and_emnu import ServerMode
 
 
 class SelfSignedCertManager:
@@ -64,15 +63,21 @@ class SelfSignedCertManager:
         str_uuid = (str(uuid.uuid4()).split('-')[1])
         return f"{host_name}-{str_uuid}"
 
-
-    def check_certs_for_client(self) -> None:
+    def check_certs_for_client(self, self_signed: bool) -> None:
         """
         检查证书文件是否存在
         """
-        if self.server_cert.exists() and self.client_crt.exists() and self.ca_cert.exists():
-            return
-        else:
-            raise FileNotFoundError("Client certificate files not found or incomplete.")
+        if self_signed: # 使用自签名证书
+            if self.server_cert.exists() and self.client_crt.exists() and self.ca_cert.exists():
+                return
+            else:
+                raise FileNotFoundError("Client certificate files not found or incomplete.")
+        else: # 使用受信任证书, 只需要检查客户端证书
+            if self.server_cert.exists() and self.client_crt.exists():
+                return
+            else:
+                raise FileNotFoundError("Client certificate files not found or incomplete.")
+
 
     def check_cert_files_for_server(self) -> None:
         """
@@ -99,6 +104,10 @@ class NetworkConfig(SelfSignedCertManager):
         self._is_encrypted: bool = False  # 默认不允许明文连接（生产环境）
         self._developer_mode: bool = True   # 开发者模式
 
+        # 基本信息
+        self.mode : Optional[Literal['server', 'client']] = None
+        self.service_mode: Optional[ServerMode] = None
+        self.shddh= None
     @property
     def allow_plaintext(self) -> bool:
         """是否允许明文连接（仅用于开发）"""
@@ -133,7 +142,7 @@ class NetworkConfig(SelfSignedCertManager):
     def self_signed_crt_mode(self, value: bool) -> None:
         """设置是否使用自签名证书"""
         if value:
-            self.check_certs_for_client()
+            self.check_certs_for_client(True)
             self.__use_self_signed_cert = value
         else:
             self.__use_self_signed_cert = value
@@ -153,8 +162,9 @@ class NetworkConfig(SelfSignedCertManager):
         return self.__host, self.__port
     
     @host_and_port.setter
-    def set_server_address(self, host: str, port: int) -> None:
+    def host_and_port(self, host_and_port: tuple[str, int]) -> None:
         """设置服务器地址和端口"""
+        host, port = host_and_port
         # 验证主机名
         if re.match(r"^[a-zA-Z0-9.\-:]+$", host):
             self.__host = host
@@ -167,9 +177,12 @@ class NetworkConfig(SelfSignedCertManager):
             StatusTracker.basic_information_update('set port', str(port))
         else:
             StatusTracker.warning_update('set port', 'port is invalid', 'use default')
+        return
 
 # 全局配置实例
 config = NetworkConfig()
+
+
 
 if __name__ == "__main__":
     test_config = NetworkConfig()
